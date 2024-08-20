@@ -1,60 +1,46 @@
-#include <unistd.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
+#include "shell.h"
+
 
 /**
- * print_error - prints error
- * @str: message error to print
+ * main - Executes command line operations
+ * @argc: Size of argv
+ * @argv: Array of arguments
  *
- * Return: error code
-*/
-int print_error(char *str)
+ * Return: 0 Success
+ */
+int main(int argc, char **argv)
 {
-	perror(str);
-
-	return (1);
-}
-
-/**
- * main - Entry point
- *
- * Return: 0 on sucess, 1 on fail
-*/
-int main(void)
-{
-	pid_t new_process;
-	int status;
+	int builtins_res, exit_status = 0;
 	ssize_t readed_bytes;
-	char *buffer = NULL, *argv[2];
-	size_t bufsize = 1024;
+	char *buffer = NULL, *prompt = "#cisfun$ ", **tokens = NULL;
+	size_t bufsize = 0, promptsize = 9, count_err = 1;
 
-	buffer = malloc(sizeof(char) * bufsize);
-	if (!buffer)
-		return (print_error("Buffer error"));
-
-	printf("#cisfun$ ");
-	readed_bytes = getline(&buffer, &bufsize, stdin);
-	if (readed_bytes == -1)
-		return (print_error("Readed bytes error"));
-
-	buffer[readed_bytes - 1] = '\0';
-	argv[0] = buffer;
-	argv[1] = NULL;
-
-	new_process = fork();
-	if (new_process == -1)
-		return (print_error("New process error"));
-
-	if (new_process == 0)
+	if (argc > 1)
 	{
-		if (execve(buffer, argv, NULL) == -1)
-			return (print_error("Executing program error"));
+		write(STDOUT_FILENO, "This program doesn't receive any arguments", 42);
+		return (0);
 	}
-	else
-		wait(&status);
+
+	while (1)
+	{
+		if (isatty(STDIN_FILENO))
+			write(STDOUT_FILENO, prompt, promptsize);
+		readed_bytes = getline(&buffer, &bufsize, stdin);
+		if (readed_bytes == EOF)
+			break;
+		if (*buffer == '\n')
+			continue;
+
+		builtins_res = execute_builtins(buffer, exit_status);
+		if (!builtins_res)
+			continue;
+
+		tokens = create_tokens(argv[0], buffer, &count_err);
+		if (tokens == NULL)
+			continue;
+
+		exit_status = create_process(argv[0], buffer, tokens);
+	}
 
 	free(buffer);
 
